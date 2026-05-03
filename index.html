@@ -53,6 +53,24 @@
     font-family:'Courier New',monospace;
   }
   #music-btn:hover { background:rgba(60,60,60,0.7); }
+  #pause-btn {
+    position:absolute; top:10px; right:130px;
+    background:rgba(0,0,0,0.55); color:#fff;
+    border:1px solid #555; padding:5px 12px; font-size:12px;
+    border-radius:4px; cursor:pointer; pointer-events:all; z-index:10;
+    font-family:'Courier New',monospace;
+  }
+  #pause-btn:hover { background:rgba(60,60,60,0.7); }
+  #pause-overlay {
+    display:none; position:absolute; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,10,25,0.72); align-items:center; justify-content:center;
+    flex-direction:column; gap:16px; pointer-events:all;
+  }
+  #pause-overlay h2 {
+    color:#fff; font-size:42px; letter-spacing:6px;
+    text-shadow:0 0 20px #0af, 0 0 6px #000;
+  }
+  #pause-overlay p { color:#99ddee; font-size:14px; }
   #gameover-screen { display:none; }
   #sub { font-size:13px; color:#aabbcc; letter-spacing:1px; }
   #instructions { font-size:13px; color:#88aacc; max-width:360px; text-align:center; line-height:1.8; }
@@ -67,7 +85,13 @@
     <div>LEVEL: <span id="level-val">1</span></div>
   </div>
   <div id="bonus-msg"></div>
+  <button id="pause-btn" style="display:none">⏸ PAUSE</button>
   <button id="music-btn">♫ Music: ON</button>
+  <div id="pause-overlay">
+    <h2>⏸ PAUSED</h2>
+    <p>Click RESUME or press <strong>P</strong> to continue</p>
+    <button class="btn" id="resume-btn">▶ RESUME</button>
+  </div>
 </div>
 
 <div id="start-screen">
@@ -174,6 +198,36 @@ document.getElementById('music-btn').onclick = () => {
   if (musicOn) startMusic(); else stopMusic();
 };
 
+// ─── Pause / Resume ───────────────────────────────────────────────────────────
+function pauseGame() {
+  if (!gameRunning || gamePaused) return;
+  gamePaused = true;
+  document.getElementById('pause-overlay').style.display = 'flex';
+  document.getElementById('pause-btn').textContent = '▶ RESUME';
+  if (musicOn) stopMusic();
+}
+
+function resumeGame() {
+  if (!gameRunning || !gamePaused) return;
+  gamePaused = false;
+  document.getElementById('pause-overlay').style.display = 'none';
+  document.getElementById('pause-btn').textContent = '⏸ PAUSE';
+  if (musicOn) startMusic();
+  gameLoop();
+}
+
+document.getElementById('pause-btn').onclick = () => {
+  gamePaused ? resumeGame() : pauseGame();
+};
+document.getElementById('resume-btn').onclick = resumeGame;
+
+// P key to toggle pause
+window.addEventListener('keydown', e => {
+  if (e.key === 'p' || e.key === 'P') {
+    gamePaused ? resumeGame() : pauseGame();
+  }
+});
+
 // ─── Shark sprites (4 images, all red chroma-keyed) ───────────────────────────
 // shark_swims_left_to_right.png  — normal, facing right
 // shark_swims_right_to_left.png  — normal, facing left
@@ -221,7 +275,7 @@ function chromaKeyRed(img) {
 // ─── Game state ───────────────────────────────────────────────────────────────
 let state = 'start', score = 0, lives = 7, level = 1;
 let sharks = [], particles = [], bloodPools = [], smallFish = [], corals = [];
-let frameN = 0, gameRunning = false;
+let frameN = 0, gameRunning = false, gamePaused = false;
 let nextBonusAt = 500, sharkSpawnTimer = 0, sharkSpawnInterval = 400;
 let bonusTO = null;
 // Level progression: based on swimmer laps (each full screen crossing = 1 lap)
@@ -996,7 +1050,7 @@ canvas.addEventListener('click', e => {
 
 // ─── Main loop ────────────────────────────────────────────────────────────────
 function gameLoop() {
-  if (!gameRunning) return;
+  if (!gameRunning || gamePaused) return;
   frameN++;
   // Spawn sharks per wave: level1=1, level2=3, level3=5 ... (+2 per level)
   // Level 1: interval halved (200 frames) for 2x spawn rate as opening challenge
@@ -1055,7 +1109,10 @@ function gameLoop() {
 
 // ─── Game control ─────────────────────────────────────────────────────────────
 function startGame() {
-  state = 'playing'; gameRunning = true;
+  state = 'playing'; gameRunning = true; gamePaused = false;
+  document.getElementById('pause-btn').style.display = 'block';
+  document.getElementById('pause-btn').textContent = '⏸ PAUSE';
+  document.getElementById('pause-overlay').style.display = 'none';
   score = 0; lives = 7; level = 1; frameN = 0;
   nextBonusAt = 500; swimmerLaps = 0; swimmerCrossedLeft = false;
   sharks = []; particles = []; bloodPools = []; surfaceSharks = []; bloodSlicks = []; swimmerWounds = [];
@@ -1071,6 +1128,8 @@ function startGame() {
 
 function endGame() {
   state = 'gameover'; gameRunning = false; swimmer.alive = false;
+  document.getElementById('pause-btn').style.display = 'none';
+  document.getElementById('pause-overlay').style.display = 'none';
   document.getElementById('final-score').textContent = score;
   document.getElementById('gameover-screen').style.display = 'flex';
   stopMusic();
