@@ -6,7 +6,7 @@
 <title>JAWS – Shark Attack!</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#000; overflow:hidden; font-family: 'Courier New', monospace; }
+  body { background:#000; overflow:hidden; font-family: 'Courier New', monospace; cursor:none; }
   canvas { display:block; }
   #ui { position:absolute; top:0; left:0; width:100%; pointer-events:none; }
   #hud {
@@ -121,6 +121,55 @@ function resize() {
 }
 resize();
 window.addEventListener('resize', resize);
+window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+window.addEventListener('mouseleave', () => { mouseX = -100; mouseY = -100; });
+
+function drawCrosshair() {
+  const x = mouseX, y = mouseY;
+  const r = 18;      // circle radius
+  const gap = 5;     // gap between circle and cross lines
+  const lineLen = 10; // length of each cross arm beyond the circle
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,60,60,0.92)';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(255,0,0,0.5)';
+  ctx.shadowBlur = 4;
+
+  // Outer circle
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Small inner dot
+  ctx.fillStyle = 'rgba(255,60,60,0.85)';
+  ctx.beginPath();
+  ctx.arc(x, y, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cross arms — 4 lines with gap around centre circle
+  // Top
+  ctx.beginPath(); ctx.moveTo(x, y - r - gap); ctx.lineTo(x, y - r - gap - lineLen); ctx.stroke();
+  // Bottom
+  ctx.beginPath(); ctx.moveTo(x, y + r + gap); ctx.lineTo(x, y + r + gap + lineLen); ctx.stroke();
+  // Left
+  ctx.beginPath(); ctx.moveTo(x - r - gap, y); ctx.lineTo(x - r - gap - lineLen, y); ctx.stroke();
+  // Right
+  ctx.beginPath(); ctx.moveTo(x + r + gap, y); ctx.lineTo(x + r + gap + lineLen, y); ctx.stroke();
+
+  // Small tick marks at 45° on the circle (diagonal accent lines)
+  const tickLen = 5;
+  for (const a of [Math.PI*0.25, Math.PI*0.75, Math.PI*1.25, Math.PI*1.75]) {
+    const cx1 = x + Math.cos(a) * (r - tickLen * 0.5);
+    const cy1 = y + Math.sin(a) * (r - tickLen * 0.5);
+    const cx2 = x + Math.cos(a) * (r + tickLen * 0.5);
+    const cy2 = y + Math.sin(a) * (r + tickLen * 0.5);
+    ctx.beginPath(); ctx.moveTo(cx1, cy1); ctx.lineTo(cx2, cy2); ctx.stroke();
+  }
+
+  ctx.restore();
+}
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
 let audioCtx = null;
@@ -270,6 +319,7 @@ function chromaKeyRed(img) {
 let state = 'start', score = 0, lives = 7, level = 1;
 let sharks = [], particles = [], bloodPools = [], smallFish = [], corals = [];
 let frameN = 0, gameRunning = false, gamePaused = false;
+let mouseX = -100, mouseY = -100; // crosshair position
 let nextBonusAt = 500, sharkSpawnTimer = 0, sharkSpawnInterval = 400;
 let bonusTO = null;
 // Level progression: based on swimmer laps (each full screen crossing = 1 lap)
@@ -1098,6 +1148,7 @@ function gameLoop() {
   updateParticles();
   updateFish();
   updateHUD();
+  drawCrosshair();
   requestAnimationFrame(gameLoop);
 }
 
