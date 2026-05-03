@@ -608,7 +608,7 @@ function drawBloodTrail() {
     grad.addColorStop(1,   `rgba(60,0,0,0)`);
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(p.x + wobbleX, py, r, r * (0.28 + t * 0.22), 0, 0, Math.PI * 2);
+    ctx.ellipse(p.x + wobbleX, py, r, r * (0.28 + t * 0.22) * 0.60, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 }
