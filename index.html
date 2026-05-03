@@ -6,7 +6,7 @@
 <title>JAWS – Shark Attack!</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#000; overflow:hidden; font-family: 'Courier New', monospace; cursor:none; }
+  body { background:#000; overflow:hidden; font-family: 'Courier New', monospace; }
   canvas { display:block; }
   #ui { position:absolute; top:0; left:0; width:100%; pointer-events:none; }
   #hud {
@@ -272,12 +272,9 @@ window.addEventListener('keydown', e => {
 });
 
 // ─── Shark sprites (4 images, all red chroma-keyed) ───────────────────────────
-// shark_swims_left_to_right.png  — normal, facing right
-// shark_swims_right_to_left.png  — normal, facing left
-// shark_open_mouth_L_to_R.png   — attacking, facing right
-// shark_open_mouth_R_to_L.png   — attacking, facing left
 let sharkImgs = { normalR: null, normalL: null, openR: null, openL: null };
 let sharkImgsReady = false;
+let sharkUseMultiply = false; // true when getImageData blocked (itch.io iframe)
 
 function chromaKeyRed(img) {
   const sw = img.naturalWidth, sh = img.naturalHeight;
@@ -292,8 +289,14 @@ function chromaKeyRed(img) {
       if (d[i] > 150 && d[i+1] < 100 && d[i+2] < 100) d[i+3] = 0;
     }
     octx.putImageData(id, 0, 0);
-  } catch(e) { /* file:// fallback — red bg visible but playable */ }
-  return oc;
+    return oc;  // clean transparent-bg canvas
+  } catch(e) {
+    // Sandboxed iframe (itch.io) blocks getImageData.
+    // Fall back to raw image — drawShark will use 'multiply' blend
+    // to suppress the red background at draw time.
+    sharkUseMultiply = true;
+    return img;
+  }
 }
 
 (function loadSharkSprites() {
@@ -900,11 +903,15 @@ function drawShark(s) {
 
   if (useLtoR) {
     ctx.rotate(vertTilt);
+    if (sharkUseMultiply) ctx.globalCompositeOperation = 'multiply';
     ctx.drawImage(img, -pivotFx * rendW, -pivotFy * rendH, rendW, rendH);
+    ctx.globalCompositeOperation = 'source-over';
   } else {
     ctx.rotate(vertTilt);
     ctx.scale(-1, 1);
+    if (sharkUseMultiply) ctx.globalCompositeOperation = 'multiply';
     ctx.drawImage(img, -pivotFx * rendW, -pivotFy * rendH, rendW, rendH);
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   ctx.restore();
@@ -1155,6 +1162,7 @@ function gameLoop() {
 // ─── Game control ─────────────────────────────────────────────────────────────
 function startGame() {
   state = 'playing'; gameRunning = true; gamePaused = false;
+  canvas.style.cursor = 'none';  // hide cursor during gameplay — crosshair takes over
   document.getElementById('pause-btn').style.display = 'block';
   document.getElementById('pause-btn').textContent = '⏸ PAUSE';
   document.getElementById('pause-overlay').style.display = 'none';
@@ -1173,6 +1181,7 @@ function startGame() {
 
 function endGame() {
   state = 'gameover'; gameRunning = false; swimmer.alive = false;
+  canvas.style.cursor = 'default';  // restore cursor on game over
   document.getElementById('pause-btn').style.display = 'none';
   document.getElementById('pause-overlay').style.display = 'none';
   document.getElementById('final-score').textContent = score;
