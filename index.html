@@ -334,6 +334,8 @@ let surfaceSharkTimer = 0;  // countdown to next surface shark spawn
 let surfaceSharkInterval = 0; // set randomly each time
 let bloodSlicks = [];       // spreading red blood patches in water on swimmer hit
 let swimmerWounds = [];     // persistent injury marks on swimmer body
+let swimmerEverBitten = false;  // true after first shark bite
+let bloodTrail = [];        // ring buffer of {x,y} positions for blood trail
 
 // ─── Swimmer ──────────────────────────────────────────────────────────────────
 const swimmer = { x: 0, y: 0, hit: 0, alive: true };
@@ -505,6 +507,7 @@ function spawnBlood(x, y, n = 20) {
 }
 
 function spawnWound() {
+  swimmerEverBitten = true;  // activate blood trail on first bite
   // Random position on swimmer body — torso, arms, legs
   // Swimmer coords relative to swimmer.x, swimmer.y (same as drawSwimmer translate)
   const bodyParts = [
@@ -579,6 +582,35 @@ function drawBloodSlicks() {
     b.life--;
   }
   bloodSlicks = bloodSlicks.filter(b => b.life > 0);
+}
+
+function drawBloodTrail() {
+  if (!swimmerEverBitten || bloodTrail.length < 2) return;
+  const n = bloodTrail.length;
+  // Swimmer length ≈ 60px. Max trail = 4 swimmer lengths = 240px worth of points.
+  // Each point is spaced ~3px apart so max points ≈ 80.
+  for (let i = 0; i < n; i++) {
+    const p = bloodTrail[i];
+    // t=0 at tail (oldest), t=1 at head (newest, just behind swimmer)
+    const t = i / (n - 1);
+    // Fade: strong near swimmer, fades to nothing at tail
+    const alpha = t * 0.62;
+    // Size: bigger near swimmer, tiny at tail
+    const r = 4 + t * 18;
+    // Slight random wobble baked into each point's offset
+    const wobbleX = p.wx || 0;
+    const wobbleY = p.wy || 0;
+    // Keep strictly in water
+    const py = Math.max(WATER_Y + 5, p.y + 12 + wobbleY);
+    const grad = ctx.createRadialGradient(p.x + wobbleX, py, 0, p.x + wobbleX, py, r);
+    grad.addColorStop(0,   `rgba(160,0,0,${alpha})`);
+    grad.addColorStop(0.55,`rgba(110,0,0,${alpha * 0.6})`);
+    grad.addColorStop(1,   `rgba(60,0,0,0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(p.x + wobbleX, py, r, r * (0.28 + t * 0.22), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function spawnExplosion(x, y) {
@@ -961,7 +993,20 @@ function showBonus(msg) {
 
 // ─── Updates ──────────────────────────────────────────────────────────────────
 function updateSwimmer() {
-  swimmer.x -= 0.55 + (level - 1) * 0.08;  // slight speed increase per level
+  swimmer.x -= 0.55 + (level - 1) * 0.08;
+  // Record blood trail positions once bitten — every 3 frames for performance
+  if (swimmerEverBitten && frameN % 3 === 0) {
+    bloodTrail.push({
+      x: swimmer.x + 20,  // slightly behind swimmer centre
+      y: swimmer.y,
+      wx: (Math.random() - 0.5) * 10,  // baked-in random wobble
+      wy: Math.random() * 8
+    });
+    // Max trail = 4 swimmer lengths (~240px). At ~0.6px/frame / 3 frames = ~0.5px/step
+    // At speed ~1px/frame, 3-frame interval = ~3px spacing → 240px / 3px = 80 points max
+    const maxPoints = 80;
+    if (bloodTrail.length > maxPoints) bloodTrail.shift();
+  }  // slight speed increase per level
   // Detect screen crossing (lap): when swimmer wraps from left edge to right
   if (swimmer.x < -60) {
     swimmer.x = W + 60;
@@ -1142,6 +1187,7 @@ function gameLoop() {
   for (const s of surfaceSharks) { if (s.alive) drawSurfaceShark(s); }
   drawWater();
   drawBloodSlicks();   // bloody water patches drawn on top of water surface
+  drawBloodTrail();    // blood trail behind swimmer after being bitten
   drawSeabed();
   drawCorals();
   drawSmallFish();
@@ -1169,6 +1215,7 @@ function startGame() {
   score = 0; lives = 7; level = 1; frameN = 0;
   nextBonusAt = 500; swimmerLaps = 0; swimmerCrossedLeft = false;
   sharks = []; particles = []; bloodPools = []; surfaceSharks = []; bloodSlicks = []; swimmerWounds = [];
+  swimmerEverBitten = false; bloodTrail = [];
   sharkSpawnTimer = 0; sharkSpawnInterval = 400;
   surfaceSharkTimer = 0; surfaceSharkInterval = 600 + Math.random() * 600 | 0;
   document.getElementById('start-screen').style.display = 'none';
@@ -1192,22 +1239,5 @@ function endGame() {
 document.getElementById('start-btn').onclick = startGame;
 document.getElementById('restart-btn').onclick = startGame;
 </script>
-<!-- Default Statcounter code for Shark Attack - JAWS
-https://shark-attack.onrender.com/ -->
-<script type="text/javascript">
-var sc_project=13225613; 
-var sc_invisible=1; 
-var sc_security="887d6fec"; 
-</script>
-<script type="text/javascript"
-src="https://www.statcounter.com/counter/counter.js"
-async></script>
-<noscript><div class="statcounter"><a title="Web Analytics
-Made Easy - Statcounter" href="https://statcounter.com/"
-target="_blank"><img class="statcounter"
-src="https://c.statcounter.com/13225613/0/887d6fec/1/"
-alt="Web Analytics Made Easy - Statcounter"
-referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
-<!-- End of Statcounter Code -->
 </body>
 </html>
