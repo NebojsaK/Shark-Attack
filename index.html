@@ -1008,11 +1008,14 @@ function gameLoop() {
       ? 200
       : Math.max(150, 400 - (level - 1) * 25);
     sharkSpawnInterval = level >= 3 ? baseInterval * 2 : baseInterval;
-    const sharksPerWave = level;  // level1=1, level2=2, level3=3 ... (+1 per level)
+    const sharksPerWave = level;
     if (level >= 3) {
-      // Spread sharks evenly across the full screen width
-      for (let i = 0; i < sharksPerWave; i++) {
-        const x = (W / sharksPerWave) * (i + 0.5) + (Math.random() - 0.5) * (W / sharksPerWave * 0.4);
+      // Cap: don't spawn if already 6 or more sharks active
+      const activeCount = sharks.filter(s => s.alive).length;
+      const canSpawn = Math.max(0, 6 - activeCount);
+      const toSpawn = Math.min(sharksPerWave, canSpawn);
+      for (let i = 0; i < toSpawn; i++) {
+        const x = (W / toSpawn || W) * (i + 0.5) + (Math.random() - 0.5) * ((W / (toSpawn || 1)) * 0.4);
         spawnShark(x);
       }
     } else {
