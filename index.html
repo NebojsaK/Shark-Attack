@@ -353,11 +353,13 @@ function drawSurfaceShark(s) {
   ctx.stroke();
 
   ctx.drawImage(img, drawX, drawY, rendW, rendH);
-  // Dark gray tint over the fin — darken the sprite significantly
+  // Darken the shark by drawing it again with multiply blend — only affects
+  // non-transparent shark pixels, not the surrounding area
   ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgb(80,80,80)';
-  ctx.fillRect(drawX, drawY, rendW, WATER_Y - drawY + 4);
+  ctx.globalAlpha = 0.55;
+  ctx.drawImage(img, drawX, drawY, rendW, rendH);
   ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1.0;
   ctx.restore();
 }
 
